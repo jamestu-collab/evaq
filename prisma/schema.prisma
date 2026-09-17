@@ -1,0 +1,114 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// NOTE: SQLite n'a pas de type enum natif dans Prisma. Les valeurs autorisees
+// pour les champs "texte contraint" ci-dessous sont validees au niveau de
+// l'application (voir src/lib/constants.ts), pas au niveau de la base.
+
+model Medecin {
+  id    String @id @default(cuid())
+  actif Boolean @default(true)
+
+  // Identite et coordonnees
+  nom       String
+  email     String?
+  telephone String?
+
+  // Statut et bases couvertes
+  statutMds      String  @default("NON_MDS") // "MDS_EXISTANT" | "NON_MDS"
+  couvreQuebec   Boolean @default(false)
+  couvreMontreal Boolean @default(false)
+
+  // Minimums / maximums standards (nul = valeur par defaut calculee selon le statut)
+  minGardesMois     Int?
+  minGardesSemestre Int?
+  maxGardesSemaine  Int @default(4)
+  maxGardesMois     Int @default(8)
+  maxGardesSemestre Int?
+
+  // Preferences de quarts consecutifs
+  preferenceQuartsConsecutifs String  @default("PEU_IMPORTE") // "OUI" | "NON" | "PEU_IMPORTE"
+  maxQuartsConsecutifs        Int?
+  resideHorsQuebec            Boolean @default(false)
+
+  // Preferences de fins de semaine
+  nbQuartsWeekendDesire         Int?
+  proportionAdditionnelleWeekend Float?
+
+  commentaires String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  derogations       DerogationAdministrative[]
+  formulaires       FormulaireSoumis[]
+
+  @@index([actif])
+  @@index([nom])
+}
+
+// Champ administratif permettant a James de remplacer temporairement
+// un minimum/maximum standard pour un medecin, sur une periode donnee.
+model DerogationAdministrative {
+  id String @id @default(cuid())
+
+  medecinId String
+  medecin   Medecin @relation(fields: [medecinId], references: [id], onDelete: Cascade)
+
+  // "MIN_MOIS" | "MAX_SEMAINE" | "MAX_MOIS" | "MIN_SEMESTRE" | "MAX_SEMESTRE"
+  type   String
+  valeur Int
+
+  dateDebut DateTime
+  dateFin   DateTime?
+  motif     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([medecinId])
+}
+
+// Journal d'audit des formulaires de disponibilite soumis par les medecins :
+// fichier original, extraction IA brute, validation/correction par James,
+// et valeur finalement enregistree.
+model FormulaireSoumis {
+  id String @id @default(cuid())
+
+  // Fichier original (conserve tel quel pour consultation/audit)
+  nomFichier    String
+  typeMime      String
+  contenuFichier Bytes
+
+  soumisLe DateTime @default(now())
+
+  // "EN_ATTENTE" | "VALIDE" | "REJETE" | "ERREUR"
+  statut String @default("EN_ATTENTE")
+
+  // Rattachement (peut etre nul tant que non valide / medecin non identifie)
+  medecinId String?
+  medecin   Medecin? @relation(fields: [medecinId], references: [id], onDelete: SetNull)
+
+  nomDetecte String? // nom tel qu'extrait par l'IA, pour aider au rapprochement
+
+  extractionIA    Json // sortie brute de l'extraction par IA, jamais modifiee
+  donneesValidees Json? // valeurs telles que confirmees/corrigees par James
+
+  erreurExtraction String?
+
+  valideLe DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([medecinId])
+  @@index([statut])
+}
