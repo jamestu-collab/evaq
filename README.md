@@ -17,7 +17,11 @@ Application de gestion des horaires du programme TMH/ÉVAQ (bases de Québec et 
 - **Indisponibilités** : déclarables directement sur la fiche de chaque médecin (page `/medecins/[id]`) — contrainte absolue pour le moteur.
 - **Modification manuelle et réservation prioritaire** : sur `/horaire`, chaque quart peut être réassigné manuellement (verrouille l'affectation pour les générations futures).
 
-Restent à faire : le mode avion-hôpital (quarts multiples, encore à clarifier avec James), la base de Montréal (l'architecture du moteur la supporte déjà, mais l'interface `/horaire` est pour l'instant figée sur Québec, par développement séquentiel), le vrai glisser-déposer des priorités, le système de demandes, et les exports (Excel, PDF, liste Mesh AI).
+**Phase 3 — Base de Montréal**
+
+- `/horaire` permet maintenant de choisir la base (Québec ou Montréal) ; chaque génération tient compte des affectations déjà existantes sur l'autre base pour ne jamais assigner un même médecin aux deux bases la même journée.
+
+Restent à faire : le mode avion-hôpital (quarts multiples, encore à clarifier avec James), le vrai glisser-déposer des priorités, le système de demandes, et les exports (Excel, PDF, liste Mesh AI).
 
 ### Simplifications assumées dans le moteur de génération (v1)
 

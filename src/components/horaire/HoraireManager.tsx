@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BASE } from "@/lib/constants";
+import { BASE, BASE_LABELS, type Base } from "@/lib/constants";
 import type { RapportGeneration } from "@/lib/moteur/generer";
 import RapportGenerationView from "./RapportGenerationView";
 
-type Medecin = { id: string; nom: string };
+type Medecin = { id: string; nom: string; couvreQuebec: boolean; couvreMontreal: boolean };
 type Assignation = {
   id: string;
   date: string;
@@ -35,6 +35,7 @@ export default function HoraireManager({
   parametresHoraire: { dateDebut: string; dateFin: string } | null;
   medecins: Medecin[];
 }) {
+  const [base, setBase] = useState<Base>(BASE.QUEBEC);
   const [dateDebut, setDateDebut] = useState(parametresHoraire?.dateDebut ?? "");
   const [dateFin, setDateFin] = useState(parametresHoraire?.dateFin ?? "");
   const [assignations, setAssignations] = useState<Assignation[]>([]);
@@ -43,25 +44,34 @@ export default function HoraireManager({
   const [erreur, setErreur] = useState<string | null>(null);
   const [rapport, setRapport] = useState<RapportGeneration | null>(null);
 
+  const medecinsPourBase = medecins.filter((m) =>
+    base === BASE.QUEBEC ? m.couvreQuebec : m.couvreMontreal,
+  );
+
   const chargerAssignations = useCallback(async () => {
     if (!dateDebut || !dateFin) return;
     setChargement(true);
-    const res = await fetch(
-      `/api/horaire?base=${BASE.QUEBEC}&dateDebut=${dateDebut}&dateFin=${dateFin}`,
-    );
+    const res = await fetch(`/api/horaire?base=${base}&dateDebut=${dateDebut}&dateFin=${dateFin}`);
     setChargement(false);
     if (res.ok) {
       const data = await res.json();
       setAssignations(data.assignations);
     }
-  }, [dateDebut, dateFin]);
+  }, [base, dateDebut, dateFin]);
 
   useEffect(() => {
     // Chargement des donnees depuis l'API au montage et a chaque changement
-    // de periode : pas de bibliotheque de fetching de donnees dans ce projet.
+    // de periode ou de base : pas de bibliotheque de fetching de donnees
+    // dans ce projet.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     chargerAssignations();
   }, [chargerAssignations]);
+
+  function changerBase(nouvelleBase: Base) {
+    setBase(nouvelleBase);
+    setRapport(null);
+    setErreur(null);
+  }
 
   async function generer() {
     setErreur(null);
@@ -70,7 +80,7 @@ export default function HoraireManager({
     const res = await fetch("/api/horaire/generer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ base: BASE.QUEBEC, dateDebut, dateFin }),
+      body: JSON.stringify({ base, dateDebut, dateFin }),
     });
     setGeneration(false);
     const data = await res.json();
@@ -84,12 +94,12 @@ export default function HoraireManager({
 
   async function assigner(date: string, medecinId: string, statut: "MANUEL" | "RESERVE") {
     if (!medecinId) {
-      await fetch(`/api/horaire/assignation?base=${BASE.QUEBEC}&date=${date}`, { method: "DELETE" });
+      await fetch(`/api/horaire/assignation?base=${base}&date=${date}`, { method: "DELETE" });
     } else {
       await fetch("/api/horaire/assignation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ base: BASE.QUEBEC, date, medecinId, statut }),
+        body: JSON.stringify({ base, date, medecinId, statut }),
       });
     }
     chargerAssignations();
@@ -100,11 +110,21 @@ export default function HoraireManager({
 
   return (
     <div className="space-y-6">
+      <h1 className="text-xl font-semibold">Horaire — {BASE_LABELS[base]}</h1>
+
       <div className="card p-4 flex flex-wrap items-end gap-4">
         <label className="text-sm">
           <span className="block mb-1">Base</span>
-          <select className="input" value="QUEBEC" disabled>
-            <option value="QUEBEC">Québec</option>
+          <select
+            className="input"
+            value={base}
+            onChange={(e) => changerBase(e.target.value as Base)}
+          >
+            {Object.values(BASE).map((b) => (
+              <option key={b} value={b}>
+                {BASE_LABELS[b]}
+              </option>
+            ))}
           </select>
         </label>
         <label className="text-sm">
@@ -129,6 +149,12 @@ export default function HoraireManager({
           {generation ? "Génération en cours…" : "Générer l'horaire"}
         </button>
       </div>
+
+      {medecinsPourBase.length === 0 && (
+        <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm">
+          Aucun médecin actif ne couvre la base de {BASE_LABELS[base]} pour le moment. Ajoute ou ajuste des profils dans la section Médecins avant de générer.
+        </div>
+      )}
 
       {erreur && (
         <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
@@ -182,7 +208,7 @@ export default function HoraireManager({
                       onChange={(e) => assigner(date, e.target.value, "MANUEL")}
                     >
                       <option value="">— Aucun —</option>
-                      {medecins.map((m) => (
+                      {medecinsPourBase.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.nom}
                         </option>

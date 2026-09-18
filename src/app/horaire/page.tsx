@@ -6,15 +6,14 @@ export const dynamic = "force-dynamic";
 export default async function HorairePage() {
   const parametres = await prisma.parametresHoraire.findUnique({ where: { id: "singleton" } });
   const medecins = await prisma.medecin.findMany({
-    where: { actif: true, couvreQuebec: true },
+    where: { actif: true, OR: [{ couvreQuebec: true }, { couvreMontreal: true }] },
     orderBy: { nom: "asc" },
-    select: { id: true, nom: true },
+    select: { id: true, nom: true, couvreQuebec: true, couvreMontreal: true },
   });
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Horaire — Québec</h1>
         <p className="text-sm text-slate-500">
           Génère l&apos;horaire pour la période choisie, réserve des quarts à l&apos;avance, ou ajuste manuellement une affectation.
         </p>
