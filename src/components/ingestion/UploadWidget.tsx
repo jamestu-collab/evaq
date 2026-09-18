@@ -40,6 +40,9 @@ export default function UploadWidget() {
 
   const [supportSurveillance, setSupportSurveillance] = useState(false);
   useEffect(() => {
+    // Detection de fonctionnalite navigateur : ne peut se faire qu'apres le
+    // montage cote client, pour eviter un ecart de rendu serveur/client.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSupportSurveillance("showDirectoryPicker" in window);
   }, []);
 

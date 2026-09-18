@@ -5,6 +5,8 @@ import MedecinForm from "@/components/medecins/MedecinForm";
 import DerogationsManager from "@/components/medecins/DerogationsManager";
 import ActionsMedecin from "@/components/medecins/ActionsMedecin";
 import HistoriqueFormulaires from "@/components/medecins/HistoriqueFormulaires";
+import IndisponibilitesManager from "@/components/medecins/IndisponibilitesManager";
+import { BASE_LABELS, PREFERENCE_QUARTS_CONSECUTIFS_LABELS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,7 @@ export default async function MedecinDetailPage({
     where: { id },
     include: {
       derogations: { orderBy: { dateDebut: "desc" } },
+      indisponibilites: { orderBy: { dateDebut: "desc" } },
       formulaires: {
         orderBy: { soumisLe: "desc" },
         select: {
@@ -34,6 +37,14 @@ export default async function MedecinDetailPage({
   });
 
   if (!medecin) notFound();
+
+  const assignations = await prisma.assignation.findMany({
+    where: { medecinId: id },
+    select: { date: true, base: true },
+  });
+  const nbAssignations = assignations.length;
+  const nbWeekend = assignations.filter((a) => [0, 6].includes(new Date(a.date).getUTCDay())).length;
+  const bases = [...new Set(assignations.map((a) => a.base))];
 
   return (
     <div className="space-y-8">
@@ -91,6 +102,13 @@ export default async function MedecinDetailPage({
 
       <div className="card p-6">
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
+          Indisponibilités
+        </h2>
+        <IndisponibilitesManager medecinId={medecin.id} indisponibilites={medecin.indisponibilites} />
+      </div>
+
+      <div className="card p-6">
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
           Journal d&apos;audit — formulaires soumis
         </h2>
         <HistoriqueFormulaires formulaires={medecin.formulaires} />
@@ -100,8 +118,42 @@ export default async function MedecinDetailPage({
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">
           Comparaison demandé / assigné
         </h2>
-        <p className="text-sm text-slate-500">
-          Cette vue sera disponible une fois le moteur de génération d&apos;horaire en place : elle comparera automatiquement les préférences soumises par {medecin.nom.split(" ")[0]} aux quarts qui lui auront été assignés.
+        {nbAssignations === 0 ? (
+          <p className="text-sm text-slate-500">
+            Aucun quart assigné pour le moment — génère un horaire pour voir la comparaison ici.
+          </p>
+        ) : (
+          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+            <div>
+              <dt className="text-slate-500">Gardes assignées</dt>
+              <dd className="font-medium">{nbAssignations}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Dont fins de semaine</dt>
+              <dd className="font-medium">
+                {nbWeekend} ({Math.round((nbWeekend / nbAssignations) * 100)} %)
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Fins de semaine désirées</dt>
+              <dd className="font-medium">{medecin.nbQuartsWeekendDesire ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Bases couvertes dans l&apos;horaire</dt>
+              <dd className="font-medium">{bases.map((b) => BASE_LABELS[b as keyof typeof BASE_LABELS] ?? b).join(", ")}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Préférence quarts consécutifs</dt>
+              <dd className="font-medium">
+                {PREFERENCE_QUARTS_CONSECUTIFS_LABELS[
+                  medecin.preferenceQuartsConsecutifs as keyof typeof PREFERENCE_QUARTS_CONSECUTIFS_LABELS
+                ] ?? medecin.preferenceQuartsConsecutifs}
+              </dd>
+            </div>
+          </dl>
+        )}
+        <p className="text-xs text-slate-400 mt-3">
+          Pour le détail jour par jour et les écarts précis avec les règles, voir le tableau de statistiques produit après chaque génération, sur la page Horaire.
         </p>
       </div>
     </div>

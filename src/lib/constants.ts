@@ -79,6 +79,79 @@ export function minGardesMoisEffectif(
   return MIN_GARDES_MOIS_DEFAUT[statutMds as StatutMds] ?? MIN_GARDES_MOIS_DEFAUT.NON_MDS;
 }
 
+export const BASE = {
+  QUEBEC: "QUEBEC",
+  MONTREAL: "MONTREAL",
+} as const;
+export type Base = (typeof BASE)[keyof typeof BASE];
+
+export const BASE_LABELS: Record<Base, string> = {
+  QUEBEC: "Québec",
+  MONTREAL: "Montréal",
+};
+
+export const STATUT_ASSIGNATION = {
+  GENERE: "GENERE",
+  MANUEL: "MANUEL",
+  RESERVE: "RESERVE",
+} as const;
+export type StatutAssignation =
+  (typeof STATUT_ASSIGNATION)[keyof typeof STATUT_ASSIGNATION];
+
+export const SOURCE_INDISPONIBILITE = {
+  DECLAREE: "DECLAREE",
+  ESC: "ESC",
+  REGULATEUR: "REGULATEUR",
+  AUTRE: "AUTRE",
+} as const;
+export type SourceIndisponibilite =
+  (typeof SOURCE_INDISPONIBILITE)[keyof typeof SOURCE_INDISPONIBILITE];
+
+export const SOURCE_INDISPONIBILITE_LABELS: Record<SourceIndisponibilite, string> = {
+  DECLAREE: "Indisponibilité déclarée",
+  ESC: "Conflit avec un quart ESC",
+  REGULATEUR: "Conflit avec un quart de médecin régulateur",
+  AUTRE: "Autre",
+};
+
+// Regles souples reordonnables par James dans l'onglet "Priorites". La regle
+// "non-disponibilites declarees" n'y figure pas : elle est appliquee comme
+// une exclusion absolue (voir src/lib/moteur), jamais comme une penalite.
+export const CLES_REGLES_PRIORITE = [
+  "COUVERTURE",
+  "MIN_GARDES",
+  "QUARTS_CONSECUTIFS",
+  "PROPORTION_WEEKEND",
+  "QUARTS_WEEKEND_DESIRE",
+] as const;
+export type CleReglePriorite = (typeof CLES_REGLES_PRIORITE)[number];
+
+export const REGLE_PRIORITE_LABELS: Record<CleReglePriorite, string> = {
+  COUVERTURE: "Couverture complète des quarts (aucune garde non comblée)",
+  MIN_GARDES: "Minimums de gardes (semaine / mois / semestre)",
+  QUARTS_CONSECUTIFS: "Préférence de quarts consécutifs (médecins de la région de Québec)",
+  PROPORTION_WEEKEND: "Plafond de fins de semaine / jours fériés par médecin",
+  QUARTS_WEEKEND_DESIRE: "Nombre de quarts de fin de semaine désiré par médecin",
+};
+
+export const REGLE_PRIORITE_DESCRIPTIONS: Record<CleReglePriorite, string> = {
+  COUVERTURE:
+    "Priorité la plus haute après le respect des non-disponibilités déclarées : le moteur préfère toujours combler un quart plutôt que respecter une règle plus bas dans cette liste.",
+  MIN_GARDES:
+    "3 gardes/mois pour un MDS existant, 4 pour un non-MDS par défaut (sauf dérogation administrative).",
+  QUARTS_CONSECUTIFS:
+    "Contrainte dure pour les médecins résidant hors de la région de Québec — n'apparaît ici que pour les médecins de la région.",
+  PROPORTION_WEEKEND:
+    "Par défaut, au plus 35 % des quarts d'un médecin sur la période sont des fins de semaine ou jours fériés.",
+  QUARTS_WEEKEND_DESIRE:
+    "Nombre de quarts de fin de semaine que le médecin a indiqué vouloir, proportionnellement à la période générée.",
+};
+
+export const PLAFOND_WEEKEND_DEFAUT = 0.35;
+
+export const HEURE_DEBUT_QUART_DEFAUT = "07:00";
+export const HEURE_FIN_QUART_DEFAUT = "19:00";
+
 // Types de fichiers de formulaire acceptes pour l'ingestion.
 export const TYPES_FICHIERS_ACCEPTES = [
   "application/pdf",

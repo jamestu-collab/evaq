@@ -51,6 +51,8 @@ model Medecin {
 
   derogations       DerogationAdministrative[]
   formulaires       FormulaireSoumis[]
+  indisponibilites  Indisponibilite[]
+  assignations      Assignation[]
 
   @@index([actif])
   @@index([nom])
@@ -111,4 +113,103 @@ model FormulaireSoumis {
 
   @@index([medecinId])
   @@index([statut])
+}
+
+// Periode pendant laquelle un medecin ne peut pas etre assigne : indisponibilite
+// declaree par le medecin lui-meme, ou conflit connu avec un autre horaire
+// (ESC, medecin regulateur). Contrainte dure pour le moteur de generation :
+// jamais violee, meme au prix d'un quart non comble.
+model Indisponibilite {
+  id String @id @default(cuid())
+
+  medecinId String
+  medecin   Medecin @relation(fields: [medecinId], references: [id], onDelete: Cascade)
+
+  dateDebut DateTime
+  dateFin   DateTime
+
+  // "DECLAREE" | "ESC" | "REGULATEUR" | "AUTRE"
+  source String @default("DECLAREE")
+  motif  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([medecinId])
+}
+
+// Definition d'un type de quart pour une base (heures configurables plutot
+// que codees en dur, pour permettre plus tard le mode avion-hopital).
+model TypeQuart {
+  id String @id @default(cuid())
+
+  // "QUEBEC" | "MONTREAL"
+  base String
+
+  nom        String // ex. "Jour"
+  heureDebut String // "07:00"
+  heureFin   String // "19:00"
+  actif      Boolean @default(true)
+
+  assignations Assignation[]
+
+  @@index([base])
+}
+
+// Parametres globaux de la periode couverte par l'horaire dynamique
+// (ex. debut/fin du semestre). Table a une seule ligne.
+model ParametresHoraire {
+  id        String   @id @default("singleton")
+  dateDebut DateTime
+  dateFin   DateTime
+  updatedAt DateTime @updatedAt
+}
+
+// Une assignation (generee par le moteur, reservee a l'avance par James, ou
+// modifiee manuellement) pour un quart precis d'une base a une date donnee.
+model Assignation {
+  id String @id @default(cuid())
+
+  base        String // "QUEBEC" | "MONTREAL"
+  date        DateTime
+  typeQuartId String
+  typeQuart   TypeQuart @relation(fields: [typeQuartId], references: [id])
+
+  medecinId String
+  medecin   Medecin @relation(fields: [medecinId], references: [id], onDelete: Cascade)
+
+  // "GENERE" | "MANUEL" | "RESERVE"
+  statut String @default("GENERE")
+  // Un quart reserve par James avant generation est traite comme acquis :
+  // le moteur construit le reste de l'horaire autour, sans le remettre en cause.
+  verrouille Boolean @default(false)
+
+  notes String?
+
+  creeLe    DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([base, date, typeQuartId])
+  @@index([medecinId])
+  @@index([date])
+}
+
+// Ordre de priorite des regles souples appliquees par le moteur de generation,
+// ajustable par James dans l'onglet "Priorites". Les contraintes dures listees
+// au cahier des charges (chevauchements, double affectation, maximums, etc.)
+// ne figurent pas ici : elles restent absolues quel que soit cet ordre.
+model ReglePriorite {
+  id String @id @default(cuid())
+
+  // Identifiant stable de la regle (voir src/lib/moteur/regles.ts)
+  cle   String  @unique
+  ordre Int
+  actif Boolean @default(true)
+
+  // Exception : la regle peut etre assouplie pour l'ensemble des medecins
+  // (le moteur repartit alors lui-meme l'assouplissement), ou pour des
+  // medecins precis seulement.
+  exceptionGenerale   Boolean @default(false)
+  medecinsExceptionId Json    @default("[]") // tableau d'identifiants de Medecin
+
+  updatedAt DateTime @updatedAt
 }

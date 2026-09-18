@@ -6,9 +6,12 @@ import { usePathname } from "next/navigation";
 const LIENS = [
   { href: "/medecins", label: "Médecins" },
   { href: "/ingestion", label: "Ingestion des formulaires" },
+  { href: "/horaire", label: "Horaire" },
+  { href: "/priorites", label: "Priorités" },
+  { href: "/parametres", label: "Paramètres" },
 ];
 
-const LIENS_A_VENIR = ["Priorités", "Horaire", "Demandes"];
+const LIENS_A_VENIR = ["Demandes"];
 
 export default function NavBar() {
   const pathname = usePathname();
